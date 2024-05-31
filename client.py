@@ -162,6 +162,7 @@ class BaseClient:
         self.tld = tld
         self.API_URL = self.API_URL.format(base_endpoint, tld)
         self.MARGIN_API_URL = self.MARGIN_API_URL.format(base_endpoint, tld)
+        self.EARNING_API_URL = self.EARNING_API_URL.format(base_endpoint, tld)
         self.WEBSITE_URL = self.WEBSITE_URL.format(tld)
         self.FUTURES_URL = self.FUTURES_URL.format(tld)
         self.FUTURES_DATA_URL = self.FUTURES_DATA_URL.format(tld)
@@ -7543,10 +7544,15 @@ True
         参数:
 
         名称	类型	是否必需	描述
+
         asset	STRING	NO	
+
         current	LONG	NO	当前查询页。 开始值 1，默认:1
+
         size	LONG	NO	默认：10，最大：100
+
         recvWindow	LONG	NO	
+        
         timestamp	LONG	YES
 
         """
