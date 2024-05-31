@@ -24,6 +24,7 @@ class BaseClient:
     API_URL = 'https://api{}.binance.{}/api'
     API_TESTNET_URL = 'https://testnet.binance.vision/api'
     MARGIN_API_URL = 'https://api{}.binance.{}/sapi'
+    EARNING_API_URL = 'https://api{}.binance.{}/sapi'
     WEBSITE_URL = 'https://www.binance.{}'
     FUTURES_URL = 'https://fapi.binance.{}/fapi'
     FUTURES_TESTNET_URL = 'https://testnet.binancefuture.com/fapi'
@@ -44,6 +45,7 @@ class BaseClient:
     FUTURES_API_VERSION = 'v1'
     FUTURES_API_VERSION2 = "v2"
     OPTIONS_API_VERSION = 'v1'
+    EARNING_API_VERSION = 'v1'
 
     BASE_ENDPOINT_DEFAULT = ''
     BASE_ENDPOINT_1 = '1'
@@ -213,6 +215,9 @@ class BaseClient:
             4: self.MARGIN_API_VERSION4,
         }
         return self.MARGIN_API_URL + '/' + options[version] + '/' + path
+
+    def _create_earning_api_uri(self, path: str) -> str:
+        return self.EARNING_API_URL + '/' + self.EARNING_API_URL + '/' + path
 
     def _create_website_uri(self, path: str) -> str:
         return self.WEBSITE_URL + '/' + path
@@ -415,7 +420,10 @@ class Client(BaseClient):
 
     def _request_margin_api(self, method, path, signed=False, version=1, **kwargs) -> Dict:
         uri = self._create_margin_api_uri(path, version)
+        return self._request(method, uri, signed, **kwargs)
 
+    def _request_earning_api(self, method, path, signed=False, **kwargs) -> Dict:
+        uri = self._create_earning_api_uri(path)
         return self._request(method, uri, signed, **kwargs)
 
     def _request_website(self, method, path, signed=False, **kwargs) -> Dict:
@@ -7525,6 +7533,25 @@ True
         """
         return self._request_margin_api('get', 'convert/tradeFlow', signed=True, data=params)
 
+    def get_earning_simple_earn_flexible_list(self, **params):
+        """
+        查询赚币活期产品列表 (USER_DATA)
+        GET /sapi/v1/simple-earn/flexible/list
+
+        权重(IP): 150
+
+        参数:
+
+        名称	类型	是否必需	描述
+        asset	STRING	NO	
+        current	LONG	NO	当前查询页。 开始值 1，默认:1
+        size	LONG	NO	默认：10，最大：100
+        recvWindow	LONG	NO	
+        timestamp	LONG	YES
+
+        """
+        return self._request_earning_api('get', 'simple-earn/flexible/list', signed=True, data=params)
+
     def close_connection(self):
         if self.session:
             self.session.close()
@@ -7639,8 +7666,11 @@ class AsyncClient(BaseClient):
 
     async def _request_margin_api(self, method, path, signed=False, version=1, **kwargs) -> Dict:
         uri = self._create_margin_api_uri(path, version)
-
         return await self._request(method, uri, signed, **kwargs)
+
+    async def _request_earning_api(self, method, path, signed=False, version=1, **kwargs) -> Dict:
+        uri = self._create_earning_api_uri(path, version)
+        return self._request(method, uri, signed, **kwargs)
 
     async def _request_website(self, method, path, signed=False, **kwargs) -> Dict:
         uri = self._create_website_uri(path)
