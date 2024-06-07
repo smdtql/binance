@@ -218,7 +218,7 @@ class BaseClient:
         return self.MARGIN_API_URL + '/' + options[version] + '/' + path
 
     def _create_earning_api_uri(self, path: str) -> str:
-        return self.EARNING_API_URL + '/' + self.EARNING_API_URL + '/' + path
+        return self.EARNING_API_URL + '/' + self.EARNING_API_VERSION + '/' + path
 
     def _create_website_uri(self, path: str) -> str:
         return self.WEBSITE_URL + '/' + path
@@ -425,6 +425,7 @@ class Client(BaseClient):
 
     def _request_earning_api(self, method, path, signed=False, **kwargs) -> Dict:
         uri = self._create_earning_api_uri(path)
+        print(uri)
         return self._request(method, uri, signed, **kwargs)
 
     def _request_website(self, method, path, signed=False, **kwargs) -> Dict:
