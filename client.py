@@ -7558,6 +7558,32 @@ True
 
         """
         return self._request_earning_api('get', 'simple-earn/flexible/list', signed=True, data=params)
+    
+    def make_simple_earning_order(self, **params):
+        """
+        申购赚币活期产品 (TRADE)
+        POST /sapi/v1/simple-earn/flexible/subscribe
+
+        权重(IP): 1
+
+        参数:
+
+        名称	类型	是否必需	描述
+
+        productId	STRING	YES	
+        
+        amount	DECIMAL	YES	
+
+        autoSubscribe	BOOLEAN	NO	true 或者 false, 默认 true. 是否自动转账;建议设为True
+
+        sourceAccount	ENUM	NO	SPOT,FUND,ALL, 默认 SPOT 根据账户具体需求而定
+
+        recvWindow	LONG	NO	
+
+        timestamp	LONG	YES	
+
+        """
+        return self._request_earning_api('post', 'simple-earn/flexible/subscribe', signed=True, data=params)
 
     def close_connection(self):
         if self.session:
