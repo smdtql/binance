@@ -22,6 +22,8 @@ from .enums import HistoricalKlinesType
 class BaseClient:
 
     API_URL = 'https://api{}.binance.{}/api'
+    PORTFOLIO_MARGIN_ACCOUNT_URL = 'https://papi.binance.com/papi'
+
     API_TESTNET_URL = 'https://testnet.binance.vision/api'
     MARGIN_API_URL = 'https://api{}.binance.{}/sapi'
     EARNING_API_URL = 'https://api{}.binance.{}/sapi'
@@ -46,6 +48,7 @@ class BaseClient:
     FUTURES_API_VERSION2 = "v2"
     OPTIONS_API_VERSION = 'v1'
     EARNING_API_VERSION = 'v1'
+    PORTFOLIO_MARGIN_ACCOUNT_API_VERSION = 'v1'
 
     BASE_ENDPOINT_DEFAULT = ''
     BASE_ENDPOINT_1 = '1'
@@ -261,6 +264,10 @@ class BaseClient:
         if self.testnet:
             url = self.OPTIONS_TESTNET_URL
         return url + '/' + self.OPTIONS_API_VERSION + '/' + path
+    
+    def _create_portfolio_margin_account_uri(self, path: str) -> str:
+        url = self.PORTFOLIO_MARGIN_ACCOUNT_URL
+        return url + '/' + self.PORTFOLIO_MARGIN_ACCOUNT_API_VERSION + '/' + path
 
     def _rsa_signature(self, query_string: str):
         assert self.PRIVATE_KEY
@@ -416,6 +423,11 @@ class Client(BaseClient):
 
     def _request_options_api(self, method, path, signed=False, **kwargs) -> Dict:
         uri = self._create_options_api_uri(path)
+        print(uri)
+        return self._request(method, uri, signed, True, **kwargs)
+
+    def _request_portfolio_margin_account_api(self, method, path, signed=False, **kwargs) -> Dict:
+        uri = self._create_portfolio_margin_account_uri(path)
         print(uri)
         return self._request(method, uri, signed, True, **kwargs)
 
@@ -7584,6 +7596,1744 @@ True
 
         """
         return self._request_earning_api('post', 'simple-earn/flexible/subscribe', signed=True, data=params)
+
+    # Portfolio Endpoints
+    def portfolio_margin_account_ping(self):
+        '''
+        https://developers.binance.com/docs/zh-CN/derivatives/portfolio-margin/market-data
+        测试服务器连通性 PING
+        接口描述
+        测试能否联通
+
+        HTTP请求
+        GET /papi/v1/ping
+
+        请求权重
+        1
+
+        请求参数
+        NONE
+
+        响应示例
+        {
+        }
+        '''
+        return self._request_portfolio_margin_account_api('get', 'ping')
+
+    def portfolio_margin_account_um_trade(self, **params):
+        '''
+        https://developers.binance.com/docs/zh-CN/derivatives/portfolio-margin/trade
+        UM下单(TRADE)
+        接口描述
+        UM下单
+
+        HTTP请求
+        POST /papi/v1/um/order
+
+        请求权重(Order)
+        1
+
+        请求参数
+        名称	类型	是否必需	描述
+        symbol	STRING	YES	交易对
+        side	ENUM	YES	方向
+        positionSide	ENUM	NO	持仓方向，单向持仓模式下非必填，默认且仅可填BOTH;在双向持仓模式下必填,且仅可选择 LONG 或 SHORT
+        type	ENUM	YES	LIMIT, MARKET
+        timeInForce	ENUM	NO	有效方法
+        quantity	DECIMAL	NO	下单数量
+        reduceOnly	STRING	NO	true或false; 非双开模式下默认false；双开模式下不接受此参数
+        price	DECIMAL	NO	委托价格
+        newClientOrderId	STRING	NO	用户自定义的订单号，不可以重复出现在挂单中。如空缺系统会自动赋值。必须满足正则规则: ^[\.A-Z\:/a-z0-9_-]{1,32}$
+        newOrderRespType	ENUM	NO	ACK， RESULT，默认 ACK
+        priceMatch	ENUM	NO	OPPONENT/ OPPONENT_5/ OPPONENT_10/ OPPONENT_20/QUEUE/ QUEUE_5/ QUEUE_10/ QUEUE_20；不能与price同时传
+        selfTradePreventionMode	ENUM	NO	NONE / EXPIRE_TAKER/ EXPIRE_MAKER/ EXPIRE_BOTH； 默认NONE
+        goodTillDate	LONG	NO	TIF为GTD时订单的自动取消时间， 当timeInforce为GTD时必传；传入的时间戳仅保留秒级精度，毫秒级部分会被自动忽略，时间戳需大于当前时间+600s且小于253402300799000
+        recvWindow	LONG	NO	
+        timestamp	LONG	YES	
+        根据 order type的不同，某些参数强制要求，具体如下:
+
+        类型	强制要求的参数
+        LIMIT	timeInForce, quantity, price
+        MARKET	quantity
+        newOrderRespType 如果传 RESULT:
+        MARKET 订单将直接返回成交结果；
+        配合使用特殊 timeInForce 的 LIMIT 订单将直接返回成交或过期拒绝结果。
+        selfTradePreventionMode 仅在 timeInForce为IOC或GTC或GTD时生效.
+        极端行情时，timeInForce为GTD的订单自动取消可能有一定延迟
+        响应示例
+        {
+            "clientOrderId": "testOrder",
+            "cumQty": "0",
+            "cumQuote": "0",
+            "executedQty": "0",
+            "orderId": 22542179,
+            "avgPrice": "0.00000",
+            "origQty": "10",
+            "price": "0",
+            "reduceOnly": false,
+            "side": "BUY",
+            "positionSide": "SHORT",
+            "status": "NEW",
+            "symbol": "BTCUSDT",
+            "timeInForce": "GTD",
+            "type": "MARKET",
+            "selfTradePreventionMode": "NONE", ////订单自成交保护模式
+            "goodTillDate": 1693207680000,      //订单TIF为GTD时的自动取消时间 
+            "updateTime": 1566818724722,
+            "priceMatch": "NONE"
+        }
+        '''
+        return self._request_portfolio_margin_account_api('post', 'um/order', signed=True, data=params)
+
+    def portfolio_margin_account_um_cancel_order(self, **params):
+        '''
+        接口描述
+        UM条件单下单
+
+        HTTP请求
+        POST /papi/v1/um/conditional/order
+
+        请求权重
+        1
+
+        请求参数
+        名称	类型	是否必需	描述
+        symbol	STRING	YES	交易对
+        side	ENUM	YES	方向
+        positionSide	ENUM	NO	持仓方向，单向持仓模式下非必填，默认且仅可填BOTH;在双向持仓模式下必填,且仅可选择 LONG 或 SHORT
+        strategyType	ENUM	YES	条件单类型"STOP", "STOP_MARKET", "TAKE_PROFIT", "TAKE_PROFIT_MARKET"或"TRAILING_STOP_MARKET"
+        timeInForce	ENUM	NO	
+        quantity	DECIMAL	NO	
+        reduceOnly	STRING	NO	true或false; 非双开模式下默认false；双开模式下不接受此参数
+        price	DECIMAL	NO	
+        workingType	ENUM	NO	stopPrice 触发类型: MARK_PRICE(标记价格), CONTRACT_PRICE(合约最新价). 默认 CONTRACT_PRICE
+        priceProtect	STRING	NO	条件单触发保护："TRUE","FALSE", 默认"FALSE". 仅 STOP, STOP_MARKET, TAKE_PROFIT, TAKE_PROFIT_MARKET 需要此参数
+        newClientStrategyId	STRING	NO	用户自定义的订单号，不可以重复出现在挂单中。如空缺系统会自动赋值。必须满足正则规则: ^[\.A-Z\:/a-z0-9_-]{1,32}$
+        stopPrice	DECIMAL	NO	Used with STOP/STOP_MARKET or TAKE_PROFIT/TAKE_PROFIT_MARKET orders.
+        activationPrice	DECIMAL	NO	TRAILING_STOP_MARKET 单使用，默认标记价格
+        callbackRate	DECIMAL	NO	TRAILING_STOP_MARKET 单使用, 最小0.1, 最大5，1代表1%
+        priceMatch	ENUM	NO	OPPONENT/ OPPONENT_5/ OPPONENT_10/ OPPONENT_20/QUEUE/ QUEUE_5/ QUEUE_10/ QUEUE_20；不能与price同时传
+        selfTradePreventionMode	ENUM	NO	NONE / EXPIRE_TAKER/ EXPIRE_MAKER/ EXPIRE_BOTH； 默认NONE
+        goodTillDate	LONG	NO	TIF为GTD时订单的自动取消时间， 当timeInforce为GTD时必传；传入的时间戳仅保留秒级精度，毫秒级部分会被自动忽略，时间戳需大于当前时间+600s且小于253402300799000
+        recvWindow	LONG	NO	
+        timestamp	LONG	YES	
+        根据 order type 的不同，某些参数强制要求，具体如下:
+
+        类型	强制要求的参数
+        STOP/TAKE_PROFIT	quantity, price, stopPrice
+        STOP_MARKET/TAKE_PROFIT_MARKET	stopPrice
+        TRAILING_STOP_MARKET	callbackRate
+        条件单为STOP/TAKE_PROFIT时, 参数timeInForce可以使用(默认GTC)
+
+        条件单的触发必须:
+
+        STOP, STOP_MARKET 止损单:
+        买入: 最新合约价格/标记价格高于等于触发价stopPrice
+        卖出: 最新合约价格/标记价格低于等于触发价stopPrice
+        TAKE_PROFIT, TAKE_PROFIT_MARKET 止盈单:
+        买入: 最新合约价格/标记价格低于等于触发价stopPrice
+        卖出: 最新合约价格/标记价格高于等于触发价stopPrice
+        TRAILING_STOP_MARKET 跟踪止损单:
+        买入: 当合约价格/标记价格区间最低价格低于激活价格activationPrice,且最新合约价格/标记价高于等于最低价设定回调幅度。
+        卖出: 当合约价格/标记价格区间最高价格高于激活价格activationPrice,且最新合约价格/标记价低于等于最高价设定回调幅度。
+        TRAILING_STOP_MARKET 跟踪止损单如果遇到报错 {"code": -2021, "msg": "Order would immediately trigger."}
+        表示订单不满足以下条件:
+
+        买入: 指定的activationPrice 必须小于 latest mark price
+        卖出: 指定的activationPrice 必须大于 latest mark price
+        条件单的触发必须:
+
+        如果订单参数priceProtect为true:
+
+        达到触发价时，MARK_PRICE(标记价格)与CONTRACT_PRICE(合约最新价)之间的价差不能超过改symbol触发保护阈值
+        触发保护阈值请参考接口GET /fapi/v1/exchangeInfo 返回内容相应symbol中"triggerProtect"字段
+        STOP, STOP_MARKET 止损单:
+
+        买入: 最新合约价格/标记价格高于等于触发价stopPrice
+        卖出: 最新合约价格/标记价格低于等于触发价stopPrice
+        TAKE_PROFIT, TAKE_PROFIT_MARKET 止盈单:
+
+        买入: 最新合约价格/标记价格低于等于触发价stopPrice
+        卖出: 最新合约价格/标记价格高于等于触发价stopPrice
+        selfTradePreventionMode 仅在 timeInForce为IOC或GTC或GTD时生效.
+
+        极端行情时，timeInForce为GTD的订单自动取消可能有一定延迟
+
+        响应示例
+        {
+            "newClientStrategyId": "testOrder",
+            "strategyId":123445,
+            "strategyStatus":"NEW",
+            "strategyType": "TRAILING_STOP_MARKET", 
+            "origQty": "10",
+            "price": "0",
+            "reduceOnly": false,
+            "side": "BUY",
+            "positionSide": "SHORT",
+            "stopPrice": "9300",        
+            "symbol": "BTCUSDT",
+            "timeInForce": "GTD",
+            "activatePrice": "9020",    
+            "priceRate": "0.3",         
+            "bookTime": 1566818724710,  //条件单下单时间  
+            "updateTime": 1566818724722
+            "workingType": "CONTRACT_PRICE",
+            "priceProtect": false, 
+            "selfTradePreventionMode": "NONE", ////订单自成交保护模式
+            "goodTillDate": 1693207680000,      //订单TIF为GTD时的自动取消时间 
+            "priceMatch": "NONE"          
+        }
+        '''
+
+    def portfolio_margin_account_um_conditional_order(self, **params):
+        '''
+        https://developers.binance.com/docs/zh-CN/derivatives/portfolio-margin/trade/New-UM-Conditional-Order
+        UM条件单下单接口，用于在组合保证金账户下达UM条件订单。
+
+        请求方法: POST /papi/v1/um/conditional/order
+
+        参数示例:
+            symbol: "BTCUSDT"
+            side: "BUY"
+            positionSide: "SHORT"
+            strategyType: "STOP"
+            stopPrice: 9300
+            price: 9000
+            quantity: 10
+            timeInForce: "GTC"
+            priceProtect: "TRUE"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 条件订单响应数据
+        '''
+        return self._request_portfolio_margin_account_api('post', 'um/conditional/order', signed=True, data=params)
+
+    def portfolio_margin_account_cm_trade(self, **params):
+        '''
+        CM下单接口，用于在组合保证金账户下达CM订单。
+
+        请求方法: POST /papi/v1/cm/order
+
+        参数示例:
+            symbol: "BTCUSD_200925"
+            side: "BUY"
+            positionSide: "SHORT"
+            type: "MARKET"
+            quantity: 10
+            timeInForce: "GTC"
+            newClientOrderId: "testOrder"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 新订单响应数据
+        '''
+        return self._request_portfolio_margin_account_api('post', 'cm/order', signed=True, data=params)
+
+    def portfolio_margin_account_cm_conditional_order(self, **params):
+        '''
+        CM条件单下单接口，用于在组合保证金账户下达CM条件订单。
+
+        请求方法: POST /papi/v1/cm/conditional/order
+
+        参数示例:
+            symbol: "BTCUSD_200925"
+            side: "BUY"
+            positionSide: "SHORT"
+            strategyType: "STOP"
+            stopPrice: 9300
+            price: 9000
+            quantity: 10
+            timeInForce: "GTC"
+            priceProtect: "TRUE"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 条件订单响应数据
+        '''
+        return self._request_portfolio_margin_account_api('post', 'cm/conditional/order', signed=True, data=params)
+
+    def portfolio_margin_account_margin_trade(self, **params):
+        '''
+        杠杆账户下单接口，用于在杠杆账户下达订单。
+
+        请求方法: POST /papi/v1/margin/order
+
+        参数示例:
+            symbol: "BTCUSDT"
+            side: "SELL"
+            type: "MARKET"
+            quantity: 10
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 新订单响应数据
+        '''
+        return self._request_portfolio_margin_account_api('post', 'margin/order', signed=True, data=params)
+
+    def portfolio_margin_account_loan(self, **params):
+        '''
+        杠杆账户借贷接口，用于申请借贷。
+
+        请求方法: POST /papi/v1/marginLoan
+
+        参数示例:
+            asset: "BTC"
+            amount: 1.5
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 交易ID
+        '''
+        return self._request_portfolio_margin_account_api('post', 'marginLoan', signed=True, data=params)
+
+    def portfolio_margin_account_repay_loan(self, **params):
+        '''
+        杠杆账户归还借贷接口，用于归还借贷。
+
+        请求方法: POST /papi/v1/repayLoan
+
+        参数示例:
+            asset: "BTC"
+            amount: 1.5
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 交易ID
+        '''
+        return self._request_portfolio_margin_account_api('post', 'repayLoan', signed=True, data=params)
+
+    def portfolio_margin_account_oco_order(self, **params):
+        '''
+        杠杆账户 OCO 下单接口，用于发送新的 OCO 订单。
+
+        请求方法: POST /papi/v1/margin/order/oco
+
+        参数示例:
+            symbol: "LTCBTC"
+            side: "BUY"
+            quantity: 10
+            price: 4000
+            stopPrice: 3999
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: OCO 订单响应数据
+        '''
+        return self._request_portfolio_margin_account_api('post', 'margin/order/oco', signed=True, data=params)
+
+    def portfolio_margin_account_cancel_um_order(self, **params):
+        '''
+        撤销UM订单接口，用于取消UM订单。
+
+        请求方法: DELETE /papi/v1/um/order
+
+        参数示例:
+            symbol: "BTCUSDT"
+            orderId: 123456789
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 订单取消信息
+        '''
+        return self._request_portfolio_margin_account_api('delete', 'um/order', signed=True, data=params)
+
+    def portfolio_margin_account_cancel_all_um_orders(self, **params):
+        '''
+        撤销全部UM订单接口，用于取消特定交易对的全部UM订单。
+
+        请求方法: DELETE /papi/v1/um/allOpenOrders
+
+        参数示例:
+            symbol: "BTCUSDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 取消全部订单结果
+        '''
+        return self._request_portfolio_margin_account_api('delete', 'um/allOpenOrders', signed=True, data=params)
+
+    def portfolio_margin_account_cancel_um_conditional_order(self, **params):
+        '''
+        取消UM条件订单接口，用于取消特定的UM条件订单。
+
+        请求方法: DELETE /papi/v1/um/conditional/order
+
+        参数示例:
+            symbol: "BTCUSDT"
+            strategyId: 123456789
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 条件订单取消信息
+        '''
+        return self._request_portfolio_margin_account_api('delete', 'um/conditional/order', signed=True, data=params)
+
+    def portfolio_margin_account_cancel_all_um_conditional_orders(self, **params):
+        '''
+        取消全部UM条件单接口，用于取消特定交易对的全部UM条件订单。
+
+        请求方法: DELETE /papi/v1/um/conditional/allOpenOrders
+
+        参数示例:
+            symbol: "BTCUSDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 取消全部条件订单结果
+        '''
+        return self._request_portfolio_margin_account_api('delete', 'um/conditional/allOpenOrders', signed=True, data=params)
+
+    def portfolio_margin_account_cancel_cm_order(self, **params):
+        '''
+        撤销CM订单接口，用于取消CM订单。
+
+        请求方法: DELETE /papi/v1/cm/order
+
+        参数示例:
+            symbol: "BTCUSD_200925"
+            orderId: 123456789
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 订单取消信息
+        '''
+        return self._request_portfolio_margin_account_api('delete', 'cm/order', signed=True, data=params)
+
+    def portfolio_margin_account_cancel_all_cm_orders(self, **params):
+        '''
+        撤销特定交易对的所有CM订单。
+
+        请求方法: DELETE /papi/v1/cm/allOpenOrders
+
+        参数示例:
+            symbol: "BTCUSD_200925"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 取消全部订单结果
+        '''
+        return self._request_portfolio_margin_account_api('delete', 'cm/allOpenOrders', signed=True, data=params)
+
+    def portfolio_margin_account_cancel_cm_conditional_order(self, **params):
+        '''
+        取消CM条件订单接口，用于取消特定的CM条件订单。
+
+        请求方法: DELETE /papi/v1/cm/conditional/order
+
+        参数示例:
+            symbol: "BTCUSD_200925"
+            strategyId: 123456789
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 条件订单取消信息
+        '''
+        return self._request_portfolio_margin_account_api('delete', 'cm/conditional/order', signed=True, data=params)
+
+    def portfolio_margin_account_cancel_all_cm_conditional_orders(self, **params):
+        '''
+        取消全部CM条件单接口，用于取消特定交易对的全部CM条件订单。
+
+        请求方法: DELETE /papi/v1/cm/conditional/allOpenOrders
+
+        参数示例:
+            symbol: "BTCUSD_200925"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 取消全部条件订单结果
+        '''
+        return self._request_portfolio_margin_account_api('delete', 'cm/conditional/allOpenOrders', signed=True, data=params)
+
+    def portfolio_margin_account_cancel_margin_order(self, **params):
+        '''
+        杠杆账户撤销订单接口，用于撤销杠杆订单。
+
+        请求方法: DELETE /papi/v1/margin/order
+
+        参数示例:
+            symbol: "BTCUSDT"
+            orderId: 123456789
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 杠杆订单取消信息
+        '''
+        return self._request_portfolio_margin_account_api('delete', 'margin/order', signed=True, data=params)
+
+    def portfolio_margin_account_cancel_margin_oco_order(self, **params):
+        '''
+        取消杠杆账户OCO订单接口。
+
+        请求方法: DELETE /papi/v1/margin/orderList
+
+        参数示例:
+            symbol: "BTCUSDT"
+            orderListId: 123456
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: OCO订单取消信息
+        '''
+        return self._request_portfolio_margin_account_api('delete', 'margin/orderList', signed=True, data=params)
+
+    def portfolio_margin_account_cancel_all_margin_orders(self, **params):
+        '''
+        杠杆账户撤销单一交易对的所有挂单接口。
+
+        请求方法: DELETE /papi/v1/margin/allOpenOrders
+
+        参数示例:
+            symbol: "BTCUSDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 取消全部挂单信息
+        '''
+        return self._request_portfolio_margin_account_api('delete', 'margin/allOpenOrders', signed=True, data=params)
+
+    def portfolio_margin_account_modify_um_order(self, **params):
+        '''
+        修改UM订单接口，用于修改限价订单，修改后会在撮合队列里重新排序。
+
+        请求方法: PUT /papi/v1/um/order
+
+        参数示例:
+            symbol: "BTCUSDT"
+            side: "BUY"
+            quantity: 1.5
+            price: 30000
+            orderId: 20072994037
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 订单修改后的信息
+        '''
+        return self._request_portfolio_margin_account_api('put', 'um/order', signed=True, data=params)
+
+    def portfolio_margin_account_modify_cm_order(self, **params):
+        '''
+        修改CM订单接口，用于修改限价订单，修改后会在撮合队列里重新排序。
+
+        请求方法: PUT /papi/v1/cm/order
+
+        参数示例:
+            symbol: "BTCUSD_200925"
+            side: "BUY"
+            quantity: 1.5
+            price: 30000
+            orderId: 20072994037
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 订单修改后的信息
+        '''
+        return self._request_portfolio_margin_account_api('put', 'cm/order', signed=True, data=params)
+
+    def portfolio_margin_account_query_um_order(self, **params):
+        '''
+        查询UM订单接口，用于查询订单状态。
+
+        请求方法: GET /papi/v1/um/order
+
+        参数示例:
+            symbol: "BTCUSDT"
+            orderId: 1917641
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 查询的订单状态
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/order', signed=True, data=params)
+
+    def portfolio_margin_account_query_all_um_orders(self, **params):
+        '''
+        查询所有UM订单接口，包括历史订单。
+
+        请求方法: GET /papi/v1/um/allOrders
+
+        参数示例:
+            symbol: "BTCUSDT"
+            startTime: 1609459200000
+            endTime: 1612137600000
+            limit: 1000
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 所有查询的订单
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/allOrders', signed=True, data=params)
+
+    def portfolio_margin_account_query_um_open_order(self, **params):
+        '''
+        查询当前UM挂单接口，用于查询挂单的状态。
+
+        请求方法: GET /papi/v1/um/openOrder
+
+        参数示例:
+            symbol: "BTCUSDT"
+            orderId: 1917641
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 查询的挂单状态
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/openOrder', signed=True, data=params)
+
+    def portfolio_margin_account_query_all_um_open_orders(self, **params):
+        '''
+        查看当前全部UM挂单接口。
+
+        请求方法: GET /papi/v1/um/openOrders
+
+        参数示例:
+            symbol: "BTCUSDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 当前所有的UM挂单
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/openOrders', signed=True, data=params)
+
+    def portfolio_margin_account_query_um_conditional_orders(self, **params):
+        '''
+        查询UM所有条件订单接口，包括历史订单。
+
+        请求方法: GET /papi/v1/um/conditional/allOrders
+
+        参数示例:
+            symbol: "BTCUSDT"
+            startTime: 1609459200000
+            endTime: 1612137600000
+            limit: 1000
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 所有条件订单
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/conditional/allOrders', signed=True, data=params)
+
+    def portfolio_margin_account_query_um_conditional_open_orders(self, **params):
+        '''
+        查看UM当前全部条件挂单接口。
+
+        请求方法: GET /papi/v1/um/conditional/openOrders
+
+        参数示例:
+            symbol: "BTCUSDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 当前条件挂单
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/conditional/openOrders', signed=True, data=params)
+
+    def portfolio_margin_account_query_um_conditional_open_order(self, **params):
+        '''
+        查询UM当前条件挂单接口。
+
+        请求方法: GET /papi/v1/um/conditional/openOrder
+
+        参数示例:
+            symbol: "BTCUSDT"
+            strategyId: 123445
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 查询的条件挂单状态
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/conditional/openOrder', signed=True, data=params)
+
+    def portfolio_margin_account_query_um_conditional_order_history(self, **params):
+        '''
+        查询UM条件单历史接口。
+
+        请求方法: GET /papi/v1/um/conditional/orderHistory
+
+        参数示例:
+            symbol: "BTCUSDT"
+            strategyId: 123445
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 条件单历史信息
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/conditional/orderHistory', signed=True, data=params)
+
+    def portfolio_margin_account_query_cm_order(self, **params):
+        '''
+        查询CM订单接口，用于查询订单状态。
+
+        请求方法: GET /papi/v1/cm/order
+
+        参数示例:
+            symbol: "BTCUSD_200925"
+            orderId: 1917641
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 查询的订单状态
+        '''
+        return self._request_portfolio_margin_account_api('get', 'cm/order', signed=True, data=params)
+
+    def portfolio_margin_account_query_all_cm_orders(self, **params):
+        '''
+        查询所有CM订单接口，包括历史订单。
+
+        请求方法: GET /papi/v1/cm/allOrders
+
+        参数示例:
+            symbol: "BTCUSD_200925"
+            startTime: 1609459200000
+            endTime: 1612137600000
+            limit: 100
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 所有CM订单
+        '''
+        return self._request_portfolio_margin_account_api('get', 'cm/allOrders', signed=True, data=params)
+
+    def portfolio_margin_account_query_all_cm_open_orders(self, **params):
+        '''
+        查看当前全部CM挂单接口。
+
+        请求方法: GET /papi/v1/cm/openOrders
+
+        参数示例:
+            symbol: "BTCUSD_200925"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 当前CM挂单
+        '''
+        return self._request_portfolio_margin_account_api('get', 'cm/openOrders', signed=True, data=params)
+
+    def portfolio_margin_account_query_cm_conditional_open_orders(self, **params):
+        '''
+        查看CM当前全部条件挂单接口。
+
+        请求方法: GET /papi/v1/cm/conditional/openOrders
+
+        参数示例:
+            symbol: "BTCUSD"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 当前条件挂单
+        '''
+        return self._request_portfolio_margin_account_api('get', 'cm/conditional/openOrders', signed=True, data=params)
+
+    def portfolio_margin_account_query_cm_conditional_order(self, **params):
+        '''
+        查询CM当前条件挂单接口。
+
+        请求方法: GET /papi/v1/cm/conditional/openOrder
+
+        参数示例:
+            symbol: "BTCUSD"
+            strategyId: 123445
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 查询的条件挂单状态
+        '''
+        return self._request_portfolio_margin_account_api('get', 'cm/conditional/openOrder', signed=True, data=params)
+
+    def portfolio_margin_account_query_all_cm_conditional_orders(self, **params):
+        '''
+        查询CM所有条件订单接口，包括历史订单。
+
+        请求方法: GET /papi/v1/cm/conditional/allOrders
+
+        参数示例:
+            symbol: "BTCUSD"
+            startTime: 1609459200000
+            endTime: 1612137600000
+            limit: 1000
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 所有条件订单
+        '''
+        return self._request_portfolio_margin_account_api('get', 'cm/conditional/allOrders', signed=True, data=params)
+
+    def portfolio_margin_account_query_cm_conditional_order_history(self, **params):
+        '''
+        查询CM条件单历史接口。
+
+        请求方法: GET /papi/v1/cm/conditional/orderHistory
+
+        参数示例:
+            symbol: "BTCUSD"
+            strategyId: 123445
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 条件单历史信息
+        '''
+        return self._request_portfolio_margin_account_api('get', 'cm/conditional/orderHistory', signed=True, data=params)
+
+    def portfolio_margin_account_query_um_force_orders(self, **params):
+        '''
+        查询用户UM强平单历史接口。
+
+        请求方法: GET /papi/v1/um/forceOrders
+
+        参数示例:
+            symbol: "BTCUSDT"
+            startTime: 1609459200000
+            endTime: 1612137600000
+            limit: 100
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 用户UM强平单历史
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/forceOrders', signed=True, data=params)
+
+    def portfolio_margin_account_query_cm_force_orders(self, **params):
+        '''
+        查询用户CM强平单历史接口。
+
+        请求方法: GET /papi/v1/cm/forceOrders
+
+        参数示例:
+            symbol: "BTCUSD_200925"
+            startTime: 1609459200000
+            endTime: 1612137600000
+            limit: 100
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 用户CM强平单历史
+        '''
+        return self._request_portfolio_margin_account_api('get', 'cm/forceOrders', signed=True, data=params)
+
+    def portfolio_margin_account_query_um_order_amendment(self, **params):
+        '''
+        查询UM订单修改历史接口。
+
+        请求方法: GET /papi/v1/um/orderAmendment
+
+        参数示例:
+            symbol: "BTCUSDT"
+            orderId: 20072994037
+            startTime: 1609459200000
+            endTime: 1612137600000
+            limit: 1000
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: UM订单修改历史
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/orderAmendment', signed=True, data=params)
+
+
+    def portfolio_margin_account_query_cm_order_amendment(self, **params):
+        '''
+        查询CM订单修改历史接口。
+
+        请求方法: GET /papi/v1/cm/orderAmendment
+
+        参数示例:
+            symbol: "BTCUSD_PERP"
+            orderId: 20072994037
+            startTime: 1609459200000
+            endTime: 1612137600000
+            limit: 100
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: CM订单修改历史
+        '''
+        return self._request_portfolio_margin_account_api('get', 'cm/orderAmendment', signed=True, data=params)
+
+    def portfolio_margin_account_query_margin_force_orders(self, **params):
+        '''
+        获取杠杆账户强制平仓记录接口。
+
+        请求方法: GET /papi/v1/margin/forceOrders
+
+        参数示例:
+            startTime: 1609459200000
+            endTime: 1612137600000
+            current: 1
+            size: 100
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 强制平仓记录
+        '''
+        return self._request_portfolio_margin_account_api('get', 'margin/forceOrders', signed=True, data=params)
+
+    def portfolio_margin_account_query_um_user_trades(self, **params):
+        '''
+        查询UM账户成交历史接口。
+
+        请求方法: GET /papi/v1/um/userTrades
+
+        参数示例:
+            symbol: "BTCUSDT"
+            startTime: 1609459200000
+            endTime: 1612137600000
+            fromId: 67880589
+            limit: 1000
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: UM账户成交历史
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/userTrades', signed=True, data=params)
+
+    def portfolio_margin_account_query_cm_user_trades(self, **params):
+        '''
+        查询CM账户成交历史接口。
+
+        请求方法: GET /papi/v1/cm/userTrades
+
+        参数示例:
+            symbol: "BTCUSD_200626"
+            startTime: 1609459200000
+            endTime: 1612137600000
+            fromId: 67880589
+            limit: 1000
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: CM账户成交历史
+        '''
+        return self._request_portfolio_margin_account_api('get', 'cm/userTrades', signed=True, data=params)
+
+    def portfolio_margin_account_query_um_adl_quantile(self, **params):
+        '''
+        查询UM持仓ADL队列估算接口。
+
+        请求方法: GET /papi/v1/um/adlQuantile
+
+        参数示例:
+            symbol: "ETHUSDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: UM持仓ADL队列估算
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/adlQuantile', signed=True, data=params)
+
+    def portfolio_margin_account_query_cm_adl_quantile(self, **params):
+        '''
+        查询CM持仓ADL队列估算接口。
+
+        请求方法: GET /papi/v1/cm/adlQuantile
+
+        参数示例:
+            symbol: "BTCUSD_201225"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: CM持仓ADL队列估算
+        '''
+        return self._request_portfolio_margin_account_api('get', 'cm/adlQuantile', signed=True, data=params)
+
+    def portfolio_margin_account_um_fee_burn(self, **params):
+        '''
+        改变UM合约交易BNB抵扣开关(手续费抵扣开或关)。
+
+        请求方法: POST /papi/v1/um/feeBurn
+
+        参数示例:
+            feeBurn: "true"  # 手续费抵扣开
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 手续费抵扣状态修改
+        '''
+        return self._request_portfolio_margin_account_api('post', 'um/feeBurn', signed=True, data=params)
+
+    def portfolio_margin_account_query_um_fee_burn(self, **params):
+        '''
+        查询UM合约交易BNB抵扣开关状态接口。
+
+        请求方法: GET /papi/v1/um/feeBurn
+
+        参数示例:
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: UM BNB抵扣状态
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/feeBurn', signed=True, data=params)
+
+    def portfolio_margin_account_query_margin_order(self, **params):
+        '''
+        查询杠杆账户订单接口。
+
+        请求方法: GET /papi/v1/margin/order
+
+        参数示例:
+            symbol: "BNBBTC"
+            orderId: 213205622
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 杠杆账户订单
+        '''
+        return self._request_portfolio_margin_account_api('get', 'margin/order', signed=True, data=params)
+
+    def portfolio_margin_account_query_margin_open_orders(self, **params):
+        '''
+        查询杠杆账户挂单记录接口。
+
+        请求方法: GET /papi/v1/margin/openOrders
+
+        参数示例:
+            symbol: "BNBBTC"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 杠杆账户挂单记录
+        '''
+        return self._request_portfolio_margin_account_api('get', 'margin/openOrders', signed=True, data=params)
+
+    def portfolio_margin_account_query_margin_all_orders(self, **params):
+        '''
+        查询杠杆账户的所有订单接口。
+
+        请求方法: GET /papi/v1/margin/allOrders
+
+        参数示例:
+            symbol: "BNBBTC"
+            startTime: 1609459200000
+            endTime: 1612137600000
+            limit: 500
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 杠杆账户所有订单
+        '''
+        return self._request_portfolio_margin_account_api('get', 'margin/allOrders', signed=True, data=params)
+
+    def portfolio_margin_account_query_margin_oco(self, **params):
+        '''
+        查询杠杆账户OCO订单接口。
+
+        请求方法: GET /papi/v1/margin/orderList
+
+        参数示例:
+            orderListId: 27
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 杠杆账户OCO订单
+        '''
+        return self._request_portfolio_margin_account_api('get', 'margin/orderList', signed=True, data=params)
+
+    def portfolio_margin_account_query_margin_all_oco(self, **params):
+        '''
+        查询杠杆账户所有OCO订单接口。
+
+        请求方法: GET /papi/v1/margin/allOrderList
+
+        参数示例:
+            fromId: 12345
+            startTime: 1609459200000
+            endTime: 1612137600000
+            limit: 500
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 杠杆账户所有OCO订单
+        '''
+        return self._request_portfolio_margin_account_api('get', 'margin/allOrderList', signed=True, data=params)
+
+    def portfolio_margin_account_query_margin_open_oco(self, **params):
+        '''
+        查询杠杆账户OCO挂单接口。
+
+        请求方法: GET /papi/v1/margin/openOrderList
+
+        参数示例:
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 杠杆账户OCO挂单
+        '''
+        return self._request_portfolio_margin_account_api('get', 'margin/openOrderList', signed=True, data=params)
+
+    def portfolio_margin_account_query_margin_my_trades(self, **params):
+        '''
+        查询杠杆账户交易历史接口。
+
+        请求方法: GET /papi/v1/margin/myTrades
+
+        参数示例:
+            symbol: "BNBBTC"
+            startTime: 1609459200000
+            endTime: 1612137600000
+            limit: 1000
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 杠杆账户交易历史
+        '''
+        return self._request_portfolio_margin_account_api('get', 'margin/myTrades', signed=True, data=params)
+
+    ## Portfolio Margin Account API-Websocket Listen key
+    def portfolio_margin_account_create_listen_key(self):
+        '''
+        生成一个新的user data stream，并返回一个listenKey。
+
+        请求方法: POST /papi/v1/listenKey
+
+        无需参数。
+
+        返回示例: listenKey
+        '''
+        return self._request_portfolio_margin_account_api('post', 'listenKey', signed=True)
+
+    def portfolio_margin_account_extend_listen_key(self):
+        '''
+        延长listenKey有效期，延长至本次调用后60分钟。
+
+        请求方法: PUT /papi/v1/listenKey
+
+        无需参数。
+
+        返回示例: 空响应体
+        '''
+        return self._request_portfolio_margin_account_api('put', 'listenKey', signed=True)
+
+    def portfolio_margin_account_close_listen_key(self):
+        '''
+        关闭指定账户数据流。
+
+        请求方法: DELETE /papi/v1/listenKey
+
+        无需参数。
+
+        返回示例: 空响应体
+        '''
+        return self._request_portfolio_margin_account_api('delete', 'listenKey', signed=True)
+
+    def portfolio_margin_account_query_balance(self, **params):
+        '''
+        查询账户余额接口。
+
+        请求方法: GET /papi/v1/balance
+
+        参数示例:
+            asset: "USDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 账户余额信息
+        '''
+        return self._request_portfolio_margin_account_api('get', 'balance', signed=True, data=params)
+
+    def portfolio_margin_account_query_account_info(self, **params):
+        '''
+        查询账户信息接口。
+
+        请求方法: GET /papi/v1/account
+
+        参数示例:
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 账户信息
+        '''
+        return self._request_portfolio_margin_account_api('get', 'account', signed=True, data=params)
+
+    def portfolio_margin_account_query_max_borrowable(self, **params):
+        '''
+        查询账户最大可借贷额度接口。
+
+        请求方法: GET /papi/v1/margin/maxBorrowable
+
+        参数示例:
+            asset: "USDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 最大可借贷额度
+        '''
+        return self._request_portfolio_margin_account_api('get', 'margin/maxBorrowable', signed=True, data=params)
+
+    def portfolio_margin_account_query_max_withdrawable(self, **params):
+        '''
+        查询账户最大可转出额度接口。
+
+        请求方法: GET /papi/v1/margin/maxWithdraw
+
+        参数示例:
+            asset: "USDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 最大可转出额度
+        '''
+        return self._request_portfolio_margin_account_api('get', 'margin/maxWithdraw', signed=True, data=params)
+
+    def portfolio_margin_account_query_um_position_risk(self, **params):
+        '''
+        查询用户UM持仓风险接口。
+
+        请求方法: GET /papi/v1/um/positionRisk
+
+        参数示例:
+            symbol: "BTCUSDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: UM持仓风险
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/positionRisk', signed=True, data=params)
+
+    def portfolio_margin_account_query_balance(self, **params):
+        '''
+        查询账户余额接口。
+
+        请求方法: GET /papi/v1/balance
+
+        参数示例:
+            asset: "USDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 账户余额信息
+        '''
+        return self._request_portfolio_margin_account_api('get', 'balance', signed=True, data=params)
+
+    def portfolio_margin_account_query_account_info(self, **params):
+        '''
+        查询账户信息接口。
+
+        请求方法: GET /papi/v1/account
+
+        参数示例:
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 账户信息
+        '''
+        return self._request_portfolio_margin_account_api('get', 'account', signed=True, data=params)
+
+    def portfolio_margin_account_query_max_borrowable(self, **params):
+        '''
+        查询账户最大可借贷额度接口。
+
+        请求方法: GET /papi/v1/margin/maxBorrowable
+
+        参数示例:
+            asset: "USDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 最大可借贷额度
+        '''
+        return self._request_portfolio_margin_account_api('get', 'margin/maxBorrowable', signed=True, data=params)
+
+    def portfolio_margin_account_query_max_withdrawable(self, **params):
+        '''
+        查询账户最大可转出额度接口。
+
+        请求方法: GET /papi/v1/margin/maxWithdraw
+
+        参数示例:
+            asset: "USDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 最大可转出额度
+        '''
+        return self._request_portfolio_margin_account_api('get', 'margin/maxWithdraw', signed=True, data=params)
+
+    def portfolio_margin_account_query_um_position_risk(self, **params):
+        '''
+        查询用户UM持仓风险接口。
+
+        请求方法: GET /papi/v1/um/positionRisk
+
+        参数示例:
+            symbol: "BTCUSDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: UM持仓风险
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/positionRisk', signed=True, data=params)
+
+    def portfolio_margin_account_query_cm_position_risk(self, **params):
+        '''
+        获取用户CM持仓风险接口。
+
+        请求方法: GET /papi/v1/cm/positionRisk
+
+        参数示例:
+            marginAsset: "BTC"
+            pair: "BTCUSD"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: CM持仓风险
+        '''
+        return self._request_portfolio_margin_account_api('get', 'cm/positionRisk', signed=True, data=params)
+        
+    def portfolio_margin_account_adjust_um_leverage(self, **params):
+        '''
+        调整UM开仓杠杆接口。
+
+        请求方法: POST /papi/v1/um/leverage
+
+        参数示例:
+            symbol: "BTCUSDT"
+            leverage: 10
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 调整后的杠杆信息
+        '''
+        return self._request_portfolio_margin_account_api('post', 'um/leverage', signed=True, data=params)
+
+
+    def portfolio_margin_account_adjust_cm_leverage(self, **params):
+        '''
+        调整CM开仓杠杆接口。
+
+        请求方法: POST /papi/v1/cm/leverage
+
+        参数示例:
+            symbol: "BTCUSD"
+            leverage: 20
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 调整后的杠杆信息
+        '''
+        return self._request_portfolio_margin_account_api('post', 'cm/leverage', signed=True, data=params)
+
+
+    def portfolio_margin_account_change_um_position_mode(self, **params):
+        '''
+        更改UM持仓模式接口。
+
+        请求方法: POST /papi/v1/um/positionSide/dual
+
+        参数示例:
+            dualSidePosition: "true"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 成功信息
+        '''
+        return self._request_portfolio_margin_account_api('post', 'um/positionSide/dual', signed=True, data=params)
+
+
+    def portfolio_margin_account_change_cm_position_mode(self, **params):
+        '''
+        更改CM持仓模式接口。
+
+        请求方法: POST /papi/v1/cm/positionSide/dual
+
+        参数示例:
+            dualSidePosition: "true"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 成功信息
+        '''
+        return self._request_portfolio_margin_account_api('post', 'cm/positionSide/dual', signed=True, data=params)
+
+
+    def portfolio_margin_account_query_um_position_mode(self, **params):
+        '''
+        查询UM持仓模式接口。
+
+        请求方法: GET /papi/v1/um/positionSide/dual
+
+        参数示例:
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 当前持仓模式
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/positionSide/dual', signed=True, data=params)
+
+
+    def portfolio_margin_account_query_cm_position_mode(self, **params):
+        '''
+        查询CM持仓模式接口。
+
+        请求方法: GET /papi/v1/cm/positionSide/dual
+
+        参数示例:
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 当前持仓模式
+        '''
+        return self._request_portfolio_margin_account_api('get', 'cm/positionSide/dual', signed=True, data=params)
+
+
+    def portfolio_margin_account_query_um_leverage_bracket(self, **params):
+        '''
+        查询UM杠杆分层标准接口。
+
+        请求方法: GET /papi/v1/um/leverageBracket
+
+        参数示例:
+            symbol: "BTCUSDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 杠杆分层标准信息
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/leverageBracket', signed=True, data=params)
+
+
+    def portfolio_margin_account_query_cm_leverage_bracket(self, **params):
+        '''
+        查询CM杠杆分层标准接口。
+
+        请求方法: GET /papi/v1/cm/leverageBracket
+
+        参数示例:
+            symbol: "BTCUSD_PERP"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 杠杆分层标准信息
+        '''
+        return self._request_portfolio_margin_account_api('get', 'cm/leverageBracket', signed=True, data=params)
+
+    def portfolio_margin_account_query_um_trading_status(self, **params):
+        '''
+        统一账户UM合约交易量化规则指标查询。
+
+        请求方法: GET /papi/v1/um/apiTradingStatus
+
+        参数示例:
+            symbol: "BTCUSDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 风控指标信息
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/apiTradingStatus', signed=True, data=params)
+
+
+    def portfolio_margin_account_query_um_commission_rate(self, **params):
+        '''
+        查询用户UM手续费率。
+
+        请求方法: GET /papi/v1/um/commissionRate
+
+        参数示例:
+            symbol: "BTCUSDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 用户手续费率
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/commissionRate', signed=True, data=params)
+
+
+    def portfolio_margin_account_query_cm_commission_rate(self, **params):
+        '''
+        查询用户CM手续费率。
+
+        请求方法: GET /papi/v1/cm/commissionRate
+
+        参数示例:
+            symbol: "BTCUSD_PERP"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 用户手续费率
+        '''
+        return self._request_portfolio_margin_account_api('get', 'cm/commissionRate', signed=True, data=params)
+
+
+    def portfolio_margin_account_query_margin_loan_history(self, **params):
+        '''
+        查询杠杆借贷记录。
+
+        请求方法: GET /papi/v1/margin/marginLoan
+
+        参数示例:
+            asset: "BNB"
+            startTime: 1609459200000
+            endTime: 1612137600000
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 杠杆借贷历史记录
+        '''
+        return self._request_portfolio_margin_account_api('get', 'margin/marginLoan', signed=True, data=params)
+
+
+    def portfolio_margin_account_query_margin_repay_history(self, **params):
+        '''
+        查询杠杆还贷记录。
+
+        请求方法: GET /papi/v1/margin/repayLoan
+
+        参数示例:
+            asset: "BNB"
+            startTime: 1609459200000
+            endTime: 1612137600000
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 杠杆还贷历史记录
+        '''
+        return self._request_portfolio_margin_account_api('get', 'margin/repayLoan', signed=True, data=params)
+
+    def portfolio_margin_account_query_repay_futures_switch(self, **params):
+        '''
+        查询自动清还合约负余额模式。
+
+        请求方法: GET /papi/v1/repay-futures-switch
+
+        参数示例:
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 自动清还模式状态
+        '''
+        return self._request_portfolio_margin_account_api('get', 'repay-futures-switch', signed=True, data=params)
+
+
+    def portfolio_margin_account_change_repay_futures_switch(self, **params):
+        '''
+        更改自动支付合约负余额模式。
+
+        请求方法: POST /papi/v1/repay-futures-switch
+
+        参数示例:
+            autoRepay: "true"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 操作结果
+        '''
+        return self._request_portfolio_margin_account_api('post', 'repay-futures-switch', signed=True, data=params)
+
+
+    def portfolio_margin_account_query_margin_interest_history(self, **params):
+        '''
+        获取杠杆利息历史。
+
+        请求方法: GET /papi/v1/margin/marginInterestHistory
+
+        参数示例:
+            asset: "USDT"
+            startTime: 1609459200000
+            endTime: 1612137600000
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 杠杆利息历史记录
+        '''
+        return self._request_portfolio_margin_account_api('get', 'margin/marginInterestHistory', signed=True, data=params)
+
+
+    def portfolio_margin_account_repay_futures_negative_balance(self, **params):
+        '''
+        清还合约负余额。
+
+        请求方法: POST /papi/v1/repay-futures-negative-balance
+
+        参数示例:
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 操作结果
+        '''
+        return self._request_portfolio_margin_account_api('post', 'repay-futures-negative-balance', signed=True, data=params)
+
+
+    def portfolio_margin_account_query_portfolio_interest_history(self, **params):
+        '''
+        查询统一账户期货负余额收息历史。
+
+        请求方法: GET /papi/v1/portfolio/interest-history
+
+        参数示例:
+            asset: "USDT"
+            startTime: 1609459200000
+            endTime: 1612137600000
+            size: 10
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 期货负余额收息历史
+        '''
+        return self._request_portfolio_margin_account_api('get', 'portfolio/interest-history', signed=True, data=params)
+
+
+    def portfolio_margin_account_auto_collection(self, **params):
+        '''
+        统一账户资金归集。
+
+        请求方法: POST /papi/v1/auto-collection
+
+        参数示例:
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 操作结果
+        '''
+        return self._request_portfolio_margin_account_api('post', 'auto-collection', signed=True, data=params)
+
+    def portfolio_margin_account_asset_collection(self, **params):
+        '''
+        特定资产账户资金归集，从合约账户划转到杠杆账户。
+
+        请求方法: POST /papi/v1/asset-collection
+
+        参数示例:
+            asset: "USDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 操作结果
+        '''
+        return self._request_portfolio_margin_account_api('post', 'asset-collection', signed=True, data=params)
+
+
+    def portfolio_margin_account_bnb_transfer(self, **params):
+        '''
+        从PM钱包划转BNB到UM钱包。
+
+        请求方法: POST /papi/v1/bnb-transfer
+
+        参数示例:
+            amount: "1.5"
+            transferSide: "TO_UM"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: transaction ID
+        '''
+        return self._request_portfolio_margin_account_api('post', 'bnb-transfer', signed=True, data=params)
+
+
+    def portfolio_margin_account_um_income(self, **params):
+        '''
+        获取UM损益资金流水。
+
+        请求方法: GET /papi/v1/um/income
+
+        参数示例:
+            symbol: "BTCUSDT"
+            incomeType: "REALIZED_PNL"
+            startTime: 1609459200000
+            endTime: 1612137600000
+            limit: 100
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: UM资金流水记录
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/income', signed=True, data=params)
+
+
+    def portfolio_margin_account_cm_income(self, **params):
+        '''
+        获取CM损益资金流水。
+
+        请求方法: GET /papi/v1/cm/income
+
+        参数示例:
+            symbol: "BTCUSD"
+            incomeType: "FUNDING_FEE"
+            startTime: 1609459200000
+            endTime: 1612137600000
+            limit: 100
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: CM资金流水记录
+        '''
+        return self._request_portfolio_margin_account_api('get', 'cm/income', signed=True, data=params)
+
+
+    def portfolio_margin_account_um_account_info(self, **params):
+        '''
+        获取UM账户信息。
+
+        请求方法: GET /papi/v1/um/account
+
+        参数示例:
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: UM账户资产和仓位信息
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/account', signed=True, data=params)
+
+
+    def portfolio_margin_account_cm_account_info(self, **params):
+        '''
+        获取CM账户信息。
+
+        请求方法: GET /papi/v1/cm/account
+
+        参数示例:
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: CM账户资产和仓位信息
+        '''
+        return self._request_portfolio_margin_account_api('get', 'cm/account', signed=True, data=params)
+
+    def portfolio_margin_account_um_account_config(self, **params):
+        '''
+        查询UM账户配置。
+
+        请求方法: GET /papi/v1/um/accountConfig
+
+        参数示例:
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: UM账户的配置，包括费率等级、交易权限、保证金模式等。
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/accountConfig', signed=True, data=params)
+
+
+    def portfolio_margin_account_um_symbol_config(self, **params):
+        '''
+        查询UM合约交易对上的基础配置。
+
+        请求方法: GET /papi/v1/um/symbolConfig
+
+        参数示例:
+            symbol: "BTCUSDT"
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: 返回指定交易对的保证金模式、杠杆倍数、是否自动增加保证金等。
+        '''
+        return self._request_portfolio_margin_account_api('get', 'um/symbolConfig', signed=True, data=params)
+
+    def portfolio_margin_account_um_account_info_v2(self, **params):
+        '''
+        获取UM账户信息V2。
+
+        请求方法: GET /papi/v2/um/account
+
+        参数示例:
+            recvWindow: 5000
+            timestamp: 当前时间戳
+
+        返回示例: UM账户资产和仓位信息
+        '''
+        return self._request_portfolio_margin_account_api('get', 'v2/um/account', signed=True, data=params)
+
+
 
     def close_connection(self):
         if self.session:
