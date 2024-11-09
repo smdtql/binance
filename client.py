@@ -7620,7 +7620,7 @@ True
         '''
         return self._request_portfolio_margin_account_api('get', 'ping')
 
-    def portfolio_margin_account_um_trade(self, **params):
+    def portfolio_margin_account_um_create_order(self, **params):
         '''
         https://developers.binance.com/docs/zh-CN/derivatives/portfolio-margin/trade
         UM下单(TRADE)
@@ -7809,7 +7809,7 @@ True
         '''
         return self._request_portfolio_margin_account_api('post', 'um/conditional/order', signed=True, data=params)
 
-    def portfolio_margin_account_cm_trade(self, **params):
+    def portfolio_margin_account_cm_create_order    (self, **params):
         '''
         CM下单接口，用于在组合保证金账户下达CM订单。
 
@@ -7853,7 +7853,7 @@ True
         '''
         return self._request_portfolio_margin_account_api('post', 'cm/conditional/order', signed=True, data=params)
 
-    def portfolio_margin_account_margin_trade(self, **params):
+    def portfolio_margin_account_margin_create_order(self, **params):
         '''
         杠杆账户下单接口，用于在杠杆账户下达订单。
 
@@ -8679,8 +8679,11 @@ True
         '''
         return self._request_portfolio_margin_account_api('get', 'margin/myTrades', signed=True, data=params)
 
+    
+
+
     ## Portfolio Margin Account API-Websocket Listen key
-    def portfolio_margin_account_create_listen_key(self):
+    def portfolio_margin_account_create_listen_key(self,**params):
         '''
         生成一个新的user data stream，并返回一个listenKey。
 
@@ -8690,9 +8693,9 @@ True
 
         返回示例: listenKey
         '''
-        return self._request_portfolio_margin_account_api('post', 'listenKey', signed=True)
+        return self._request_portfolio_margin_account_api('post', 'listenKey', signed=True,data=params)
 
-    def portfolio_margin_account_extend_listen_key(self):
+    def portfolio_margin_account_extend_listen_key(self,**params):
         '''
         延长listenKey有效期，延长至本次调用后60分钟。
 
@@ -8702,7 +8705,7 @@ True
 
         返回示例: 空响应体
         '''
-        return self._request_portfolio_margin_account_api('put', 'listenKey', signed=True)
+        return self._request_portfolio_margin_account_api('put', 'listenKey', signed=True,data=params)
 
     def portfolio_margin_account_close_listen_key(self):
         '''
@@ -8714,7 +8717,7 @@ True
 
         返回示例: 空响应体
         '''
-        return self._request_portfolio_margin_account_api('delete', 'listenKey', signed=True)
+        return self._request_portfolio_margin_account_api('delete', 'listenKey', signed=True,data=params)
 
     def portfolio_margin_account_query_balance(self, **params):
         '''
