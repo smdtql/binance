@@ -13,6 +13,12 @@ from Crypto.Hash import SHA256
 from Crypto.Signature import pkcs1_15
 from operator import itemgetter
 from urllib.parse import urlencode
+import websockets
+import json
+import logging
+from multiprocessing import Queue
+
+import asyncio
 
 from .helpers import interval_to_milliseconds, convert_ts_str
 from .exceptions import BinanceAPIException, BinanceRequestException, NotImplementedException
@@ -8707,7 +8713,7 @@ True
         '''
         return self._request_portfolio_margin_account_api('put', 'listenKey', signed=True,data=params)
 
-    def portfolio_margin_account_close_listen_key(self):
+    def portfolio_margin_account_delete_listen_key(self,**params):
         '''
         关闭指定账户数据流。
 
@@ -10782,3 +10788,102 @@ class AsyncClient(BaseClient):
     async def get_convert_trade_history(self, **params):
         return await self._request_margin_api('get', 'convert/tradeFlow', signed=True, data=params)
     get_convert_trade_history.__doc__ = Client.get_convert_trade_history.__doc__
+
+
+
+class Websocket_Client(Client):
+    PM_WEBSOCKET_URL = 'wss://fstream.binance.com/pm/ws/'
+
+
+    def __init__(
+        self, api_key: Optional[str] = None, api_secret: Optional[str] = None,
+        requests_params: Optional[Dict[str, str]] = None, tld: str = 'com',
+        base_endpoint: str = BaseClient.BASE_ENDPOINT_DEFAULT, testnet: bool = False,
+        private_key: Optional[Union[str, Path]] = None, private_key_pass: Optional[str] = None
+    ):
+
+        super().__init__(api_key, api_secret, requests_params, tld, base_endpoint, testnet, private_key, private_key_pass)
+
+        # init DNS and SSL cert
+        self.ping()
+
+        
+
+    
+    async def pm_client_websocket_listener(self, input_queue: Queue, output_queue: Queue):
+        while True:
+            listenKey = self.portfolio_margin_account_create_listen_key()
+            url = f"{self.PM_WEBSOCKET_URL}{listenKey['listenKey']}"
+            async with websockets.connect(url) as ws:
+                while True:
+                    try:
+                        if not input_queue.empty():
+                            input_data = input_queue.get()
+                            json_msg =json.dumps(input_data)
+                            await asyncio.wait_for(ws.send(json_msg), timeout=5)
+
+                        data = await asyncio.wait_for(ws.recv(), timeout=5)
+                        data = json.loads(data)
+                        print(data)
+                        time_qq = 0
+
+                        if output_queue.full():
+                            output_queue.get()  # 删除最旧的元素
+                        output_queue.put(data)
+                    except asyncio.TimeoutError:
+                        ping_msg = {
+                            "id": "922bcc6e-9de8-440d-9e84-7c80933a8d0d",
+                            "method": "ping"
+                        }
+                        await ws.send(json.dumps(ping_msg))
+                        print(f'WARNING: Send ping: warning: asyncio.TimeoutError or websockets.exceptions.ConnectionClosed')
+                        logging.info(f'WARNING: Send ping: warning: asyncio.TimeoutError or websockets.exceptions.ConnectionClosed')
+                        time_qq += 1
+                        if time_qq >= 10:
+                            resp = self.portfolio_margin_account_delete_listen_key()
+                            await ws.close()
+                            break
+                        try:
+                            res_ping = await asyncio.wait_for(ws.recv(), timeout=15)
+                            print(res_ping)
+                        except asyncio.TimeoutError:
+                            print('WARNING: Ping timeout')
+                            resp = self.portfolio_margin_account_delete_listen_key()
+                            await ws.close()
+                            break
+                    except websockets.exceptions.ConnectionClosed:
+                        print('Connection closed, reconnecting...')
+                        logging.info('Connection closed, reconnecting...')
+                        resp = self.portfolio_margin_account_delete_listen_key()
+                        await ws.close()
+                        break
+                    except Exception as e:
+                        print(e)
+                        logging.info(e)
+                        resp = self.portfolio_margin_account_delete_listen_key()
+                        await ws.close()
+                        break
+
+                    if time.localtime().tm_min == 0 or time.localtime().tm_min == 30:
+                        if time.localtime().tm_hour == 20 or time.localtime().tm_hour == 8:
+                            resp = self.portfolio_margin_account_delete_listen_key()
+                            await asyncio.sleep(15)
+                            await ws.close()
+                            break
+                        else:
+                            listenKey_new = self.portfolio_margin_account_create_listen_key()
+                            print(listenKey_new)
+                            if listenKey_new['listenKey'] != listenKey['listenKey']:
+                                resp = self.portfolio_margin_account_delete_listen_key()
+                                await asyncio.sleep(15)
+                                await ws.close()
+                                break
+                            else:
+                                continue
+                await ws.close()
+
+    def start_pm_client_websocket_listener(self, input_queue: Queue, output_queue: Queue):
+        asyncio.run(self.pm_client_websocket_listener(input_queue, output_queue))
+
+
+    
