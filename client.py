@@ -6325,6 +6325,14 @@ True
 
         """
         return self._request_futures_api('get', 'account', True, data=params)
+    
+    def future_get_trading_status(self, **params):
+        """
+        https://www.binance.com/zh-CN/support/faq/%E5%B9%A3%E5%AE%89%E5%90%88%E7%B4%84%E4%BA%A4%E6%98%93%E9%87%8F%E5%8C%96%E8%A6%8F%E5%89%87-4f462ebe6ff445d4a170be7d9e897272
+
+        """
+        return self._request_futures_api('get', 'apiTradingStatus', True, data=params)
+
 
     def futures_change_leverage(self, **params):
         """Change user's initial leverage of specific symbol market
