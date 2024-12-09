@@ -6097,7 +6097,7 @@ class Client(BaseClient):
 
         return self._historical_klines_generator(symbol, interval, start_str, end_str=end_str, klines_type=HistoricalKlinesType.FUTURES)
 
-    def futures_mark_price(self, **params):
+    def futures_premium_index(self, **params):
         """Get Mark Price and Funding Rate
 
         https://binance-docs.github.io/apidocs/futures/en/#mark-price-market_data
@@ -6112,6 +6112,13 @@ class Client(BaseClient):
 
         """
         return self._request_futures_api('get', 'fundingRate', data=params)
+
+    def futures_funding_rate(self, **params):
+        """Get funding rate rate
+        https://binance-docs.github.io/apidocs/futures/cn/#21756a58d9
+
+        """
+        return self._request_futures_api('get', 'fundingInfo', data=params)
 
     def futures_top_longshort_account_ratio(self, **params):
         """Get present long to short ratio for top accounts of a specific symbol.
